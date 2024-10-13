@@ -37,9 +37,20 @@ def landing_page():
             size_preference = st.radio("What market capitalization do you prefer?", 
                                        options=["Small", "Medium", "Large"])
 
-            # Question 2c: Value or growth preference
+            # Question 2c: Value or growth preference with modal information
             pe_preference = st.radio("Do you want to focus on Value stocks or Growth stocks?", 
                                      options=["Value", "Growth"])
+
+            # Button to open the modal with more information on value vs growth
+            if st.button("More information about Value vs. Growth stocks"):
+                with st.modal("Information about Value vs. Growth Stocks"):
+                    st.markdown("""
+                    - **Value stocks**: Suitable for conservative investors looking for steady returns and lower risk. 
+                    These companies may be undervalued and typically offer dividends.
+                    
+                    - **Growth stocks**: Suitable for aggressive investors willing to take on more risk for the possibility of higher returns. 
+                    These companies are expected to grow at an above-average rate and often reinvest their earnings instead of offering dividends.
+                    """)
 
         elif investment_type == "ETFs":
             # Question 3: Risk profile for ETFs
@@ -48,7 +59,7 @@ def landing_page():
 
         # Minimal threshold for portfolio allocation (common for both stocks and ETFs)
         percentage_threshold = st.slider("Minimal threshold of portfolio allocation (%)", 
-                                         min_value=0.0, max_value=100.0, value=1.0)
+                                         min_value=0.0, max_value=100.0, value=50.0)
 
         # Submit button
         submit_button = st.form_submit_button("Submit")
