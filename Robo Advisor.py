@@ -3,6 +3,8 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import yfinance as yf
+from cvxpy import Variable, quad_form, Problem, Minimize
+from datetime import datetime
 
 # Set page configuration to hide the menu bar and the footer
 st.set_page_config(page_title="Investment Portfolio App", page_icon="📊", layout="centered", initial_sidebar_state="collapsed")
@@ -137,46 +139,171 @@ def result_page():
             'LRCX', 'KLAC', 'ASML', 'TSM',
             'BABA', 'JD', 'PDD', 'BIDU'
         ]
+        
+        # Function to retrieve metadata on the stocks
+        def get_metadata(ticker, meta_type='marketCap'):
+            stock = yf.Ticker(ticker)
+            return stock.info.get(meta_type, None)
+
+        def retrieve_and_filter_metadata(tickers):
+            market_cap = {}
+            beta = {}
+            pe_ratio = {}
+            excluded_tickers = []
+
+            for ticker in tickers:
+                mc = get_metadata(ticker, 'marketCap')
+                b = get_metadata(ticker, 'beta')
+                pe = get_metadata(ticker, 'forwardPE')
+
+                if (mc is not None) and (b is not None) and (pe is not None):
+                    market_cap[ticker] = mc
+                    beta[ticker] = b
+                    pe_ratio[ticker] = pe
+                else:
+                    excluded_tickers.append(ticker)
+
+            # Print excluded tickers
+            if excluded_tickers:
+                st.warning(f"Excluded tickers due to missing data: {excluded_tickers}")
+
+            return market_cap, beta, pe_ratio
+
+        # Retrieve metadata for all tickers
+        market_cap, beta, pe_ratio = retrieve_and_filter_metadata(tickers)
+
+        # Refine the tickers
+        tickers = list(market_cap.keys())  # Convert dict_keys to a list
+
+        # For visualizations - restructure a bit
+        market_caps = [market_cap[ticker] for ticker in tickers]
+        betas = [beta[ticker] for ticker in tickers]
+        pe_ratios = [pe_ratio[ticker] for ticker in tickers]
+        market_caps_normalized = [mc / 1e9 for mc in market_caps]  # Convert to billions for scaling
+
+        # Fetch historical price data for the selected tickers
+        data = yf.download(tickers, start='2020-01-01', end='2023-01-01')['Adj Close']
+
+        # Normalize the stock prices
+        normalized_data = data / data.iloc[0, :]
+
+        # Plot the normalized prices
+        st.write(f"Normalized Stock Prices from 2020 to 2023")
+        plt.figure(figsize=(14, 7))
+        for ticker in tickers:
+            plt.plot(normalized_data[ticker], label=ticker)
+
+        # Multi-column legend
+        plt.legend(loc='upper left', bbox_to_anchor=(1, 1), ncol=2)
+        plt.title(f'Normalized Stock Prices')
+        plt.xlabel('Date')
+        plt.ylabel('Normalized Price')
+        st.pyplot(plt)
+
+        # Market Capitalization vs. Beta scatter plot
+        plt.figure(figsize=(14, 7))
+        plt.scatter(betas, market_caps_normalized, s=market_caps_normalized, alpha=0.5)
+        for i, ticker in enumerate(tickers):
+            plt.text(betas[i], market_caps_normalized[i], ticker, fontsize=9)
+        plt.title('Market Capitalization vs. Beta')
+        plt.xlabel('Beta')
+        plt.ylabel('Market Capitalization (Billions)')
+        plt.grid(True)
+        st.pyplot(plt)
+
+        # Market Capitalization vs. P/E Ratio scatter plot
+        plt.figure(figsize=(14, 7))
+        plt.scatter(pe_ratios, market_caps_normalized, s=market_caps_normalized, alpha=0.5)
+        for i, ticker in enumerate(tickers):
+            plt.text(pe_ratios[i], market_caps_normalized[i], ticker, fontsize=9)
+        plt.title('Market Capitalization vs. P/E Ratio')
+        plt.xlabel('P/E Ratio')
+        plt.ylabel('Market Capitalization (Billions)')
+        plt.grid(True)
+        st.pyplot(plt)
+
+        # Function to filter stocks based on user preferences
+        def filter_stocks(
+            risk_level_stocks: str,
+            size_preference: str,
+            pe_preference: str,
+            meta_marketcap: dict,
+            meta_beta: dict,
+            meta_pe: dict,
+            marketcap_boundaries: list = [2e9, 10e9],
+            pe_boundary: float = 20,
+        ) -> list:
+            """
+            Filters stocks based on risk level and market capitalization size preference.
+
+            Parameters:
+            - risk_level_stocks (str):      Desired risk level ('low', 'medium', 'high').
+            - size_preference (str):        Desired market cap size ('small', 'medium', 'large').
+            - pe_preference (str):          Desired P/E ratio preference ('value', 'growth').
+            - meta_marketcap (dict):        Dictionary of market capitalizations.
+            - meta_beta (dict):             Dictionary of beta values.
+            - meta_pe (dict):               Dictionary of P/E ratios.
+            - marketcap_boundaries (list):  Boundaries for market cap classification [small_cap_max, mid_cap_max].
+            - pe_boundary (float):          Boundary of value stocks `>` or growth stocks '<='
+
+            Returns:
+            - list: Filtered list of stock tickers.
+            """
+            filtered_tickers = []
+
+            for ticker in meta_marketcap.keys():
+                mc = meta_marketcap.get(ticker)
+                b = meta_beta.get(ticker)
+                pe = meta_pe.get(ticker)
+
+                if mc is None or b is None or pe is None:
+                    continue
+
+                # Market cap classification
+                if size_preference == 'small' and mc > marketcap_boundaries[0]:
+                    continue
+                if size_preference == 'medium' and (mc <= marketcap_boundaries[0] or mc > marketcap_boundaries[1]):
+                    continue
+                if size_preference == 'large' and mc <= marketcap_boundaries[1]:
+                    continue
+
+                # Risk classification based on beta
+                if risk_level_stocks == 'low' and b > 1:
+                    continue
+                if risk_level_stocks == 'medium' and (b <= 1 or b > 1.5):
+                    continue
+                if risk_level_stocks == 'high' and b <= 1.5:
+                    continue
+
+                # P/E ratio classification
+                if pe_preference == 'value' and pe > pe_boundary:
+                    continue
+                if pe_preference == 'growth' and pe <= pe_boundary:
+                    continue
+
+                filtered_tickers.append(ticker)
+
+            return filtered_tickers
+
+        # Filter stocks based on user preferences
+        selected_tickers = filter_stocks(
+            st.session_state['risk_level'],
+            st.session_state['size_preference'],
+            st.session_state['pe_preference'],
+            market_cap,
+            beta,
+            pe_ratio,
+        )
+
+        # Display the filtered stocks
+        st.write(f"Stocks to invest in based on your profile: {selected_tickers}")
+
     elif st.session_state['investment_type'] == 'ETFs':
-        tickers = [
-            'SPY', 'IVV', 'VOO', 'QQQ', 'VTI',
-            'IWM', 'VUG', 'VTV', 'EEM', 'EFA'
-        ]
+        # ETF handling can be done here, similar to stocks if needed.
+        st.write("ETFs section coming soon!")
 
-    # Fetch historical price data for the selected tickers
-    data = yf.download(tickers, start='2020-01-01', end='2023-01-01')['Adj Close']
-
-    # Normalize the stock prices
-    normalized_data = data / data.iloc[0, :]
-
-    # Plot the normalized prices
-    st.write(f"Normalized {st.session_state['investment_type']} Prices from 2020 to 2023")
-    plt.figure(figsize=(14, 7))
-    for ticker in tickers:
-        plt.plot(normalized_data[ticker], label=ticker)
-
-    # Multi-column legend
-    plt.legend(loc='upper left', bbox_to_anchor=(1, 1), ncol=2)
-    plt.title(f'Normalized {st.session_state["investment_type"]} Prices')
-    plt.xlabel('Date')
-    plt.ylabel('Normalized Price')
-    st.pyplot(plt)
-
-    # Button to go back to the Landing Page
-    if st.button("Go back to Questionnaire"):
-        st.session_state['submitted'] = False
-        st.experimental_rerun()
-
-# Main function to handle page rendering
-def main():
-    if 'submitted' not in st.session_state:
-        st.session_state['submitted'] = False
-
-    # Check if form is submitted, if not show the form page
-    if not st.session_state['submitted']:
-        landing_page()
-    else:
-        result_page()
-
-if __name__ == "__main__":
-    main()
+# Main entry point
+if 'submitted' not in st.session_state:
+    landing_page()
+else:
+    result_page()
