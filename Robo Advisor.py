@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import yfinance as yf
 
 # Set page configuration to hide the menu bar and the footer
 st.set_page_config(page_title="Investment Portfolio App", page_icon="📊", layout="centered", initial_sidebar_state="collapsed")
@@ -46,9 +47,18 @@ def landing_page():
             risk_profile = st.radio("What is your risk profile for ETFs?", 
                                     options=["Conservative", "Progressive"])
 
-        # Minimal threshold for portfolio allocation (common for both stocks and ETFs)
+        # General portfolio preferences
+        st.write("Portfolio Setup")
+
+        # Minimal threshold of portfolio allocation (default to 50%)
         percentage_threshold = st.slider("Minimal threshold of portfolio allocation (%)", 
-                                         min_value=0.0, max_value=100.0, value=1.0)
+                                         min_value=0.0, max_value=100.0, value=50.0)
+
+        # Buy-in amount in EUR
+        buy_in_EUR = st.number_input("What is your buy-in amount (EUR)?", min_value=0.0, value=100000.0)
+
+        # Fee amount in EUR
+        fee = st.number_input("What is the fee for the investment (EUR)?", min_value=0.0, value=1500.0)
 
         # Submit button
         submit_button = st.form_submit_button("Submit")
@@ -57,6 +67,8 @@ def landing_page():
             # Store inputs in session state
             st.session_state['investment_type'] = investment_type
             st.session_state['percentage_threshold'] = percentage_threshold
+            st.session_state['buy_in_EUR'] = buy_in_EUR
+            st.session_state['fee'] = fee
             if investment_type == "Stocks":
                 st.session_state['risk_level'] = risk_level
                 st.session_state['size_preference'] = size_preference
@@ -66,17 +78,6 @@ def landing_page():
 
             st.session_state['submitted'] = True
             st.experimental_rerun()
-
-    # The modal button is placed **outside** the form, so it doesn't conflict with form behavior
-    if investment_type == "Stocks" and st.button("More information about Value vs. Growth stocks"):
-        with st.modal("Information about Value vs. Growth Stocks"):
-            st.markdown("""
-            - **Value stocks**: Suitable for conservative investors looking for steady returns and lower risk. 
-            These companies may be undervalued and typically offer dividends.
-            
-            - **Growth stocks**: Suitable for aggressive investors willing to take on more risk for the possibility of higher returns. 
-            These companies are expected to grow at an above-average rate and often reinvest their earnings instead of offering dividends.
-            """)
 
 # Function to display the result page
 def result_page():
@@ -90,14 +91,18 @@ def result_page():
                 "Risk Level", 
                 "Market Capitalization Preference", 
                 "Value or Growth Preference", 
-                "Minimal Portfolio Allocation Threshold (%)"
+                "Minimal Portfolio Allocation Threshold (%)", 
+                "Buy-in Amount (EUR)", 
+                "Fee (EUR)"
             ],
             "Your Answer": [
                 st.session_state['investment_type'], 
                 st.session_state['risk_level'], 
                 st.session_state['size_preference'], 
                 st.session_state['pe_preference'], 
-                st.session_state['percentage_threshold']
+                st.session_state['percentage_threshold'],
+                st.session_state['buy_in_EUR'],
+                st.session_state['fee']
             ]
         }
     elif st.session_state['investment_type'] == "ETFs":
@@ -105,29 +110,57 @@ def result_page():
             "Question": [
                 "Investment Type", 
                 "Risk Profile", 
-                "Minimal Portfolio Allocation Threshold (%)"
+                "Minimal Portfolio Allocation Threshold (%)", 
+                "Buy-in Amount (EUR)", 
+                "Fee (EUR)"
             ],
             "Your Answer": [
                 st.session_state['investment_type'], 
                 st.session_state['risk_profile'], 
-                st.session_state['percentage_threshold']
+                st.session_state['percentage_threshold'],
+                st.session_state['buy_in_EUR'],
+                st.session_state['fee']
             ]
         }
 
     df = pd.DataFrame(data)
     st.table(df)
 
-    # Generate random data and plot a line graph (this could be based on actual data processing in a real app)
-    x = np.arange(1, 11)  # X-axis: 10 data points
-    y = np.random.rand(10) * st.session_state['percentage_threshold']  # Y-axis based on user input
+    # Fetching historical data from yfinance based on investment type
+    if st.session_state['investment_type'] == 'Stocks':
+        tickers = [
+            'AAPL', 'MSFT', 'GOOGL', 'AMZN',
+            'TSLA', 'NVDA', 'NFLX', 'ADBE',
+            'PYPL', 'INTC', 'CSCO', 'ORCL',
+            'IBM', 'CRM', 'AMD', 'QCOM',
+            'TXN', 'AVGO', 'MU', 'AMAT',
+            'LRCX', 'KLAC', 'ASML', 'TSM',
+            'BABA', 'JD', 'PDD', 'BIDU'
+        ]
+    elif st.session_state['investment_type'] == 'ETFs':
+        tickers = [
+            'SPY', 'IVV', 'VOO', 'QQQ', 'VTI',
+            'IWM', 'VUG', 'VTV', 'EEM', 'EFA'
+        ]
 
-    st.write("Portfolio allocation over time (simulated):")
-    fig, ax = plt.subplots()
-    ax.plot(x, y, marker='o')
-    ax.set_title("Simulated Portfolio Allocation")
-    ax.set_xlabel("Time (Years)")
-    ax.set_ylabel("Allocation (%)")
-    st.pyplot(fig)
+    # Fetch historical price data for the selected tickers
+    data = yf.download(tickers, start='2020-01-01', end='2023-01-01')['Adj Close']
+
+    # Normalize the stock prices
+    normalized_data = data / data.iloc[0, :]
+
+    # Plot the normalized prices
+    st.write(f"Normalized {st.session_state['investment_type']} Prices from 2020 to 2023")
+    plt.figure(figsize=(14, 7))
+    for ticker in tickers:
+        plt.plot(normalized_data[ticker], label=ticker)
+
+    # Multi-column legend
+    plt.legend(loc='upper left', bbox_to_anchor=(1, 1), ncol=2)
+    plt.title(f'Normalized {st.session_state["investment_type"]} Prices')
+    plt.xlabel('Date')
+    plt.ylabel('Normalized Price')
+    st.pyplot(plt)
 
     # Button to go back to the Landing Page
     if st.button("Go back to Questionnaire"):
