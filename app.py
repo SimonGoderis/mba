@@ -79,7 +79,7 @@ def landing_page():
                 st.session_state['risk_profile'] = risk_profile
 
             st.session_state['submitted'] = True
-            st.experimental_rerun()
+            st.rerun()
 
 # Function to display the result page
 def result_page():
