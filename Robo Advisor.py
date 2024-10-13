@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # Set page configuration to hide the menu bar and the footer
-st.set_page_config(page_title="Two Page App", page_icon="📊", layout="centered", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="Investment Portfolio App", page_icon="📊", layout="centered", initial_sidebar_state="collapsed")
 
 # Hide the default Streamlit menu and footer
 hide_streamlit_style = """
@@ -15,77 +15,124 @@ hide_streamlit_style = """
 """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
-# Page navigation
-def main():
-    # Page navigation using radio buttons (placed at the top instead of sidebar)
-    page = st.radio("Navigation", ["Landing Page", "Result Page"], index=0)
-
-    # Store inputs in session state
-    if 'submitted' not in st.session_state:
-        st.session_state['submitted'] = False
-
-    if page == "Landing Page":
-        landing_page()
-    elif page == "Result Page" and st.session_state['submitted']:
-        result_page()
-    else:
-        st.warning("Please complete the form on the Landing Page first.")
-
-# Landing page with a form
+# Function to display the landing page (form)
 def landing_page():
-    st.title("Landing Page")
+    st.title("Investment Portfolio Questionnaire")
 
-    with st.form("user_input_form"):
-        st.write("Please answer the following questions:")
+    # Form for user input
+    with st.form("investment_form"):
+        # Question 1: Investment type
+        investment_type = st.selectbox(
+            "Do you want to invest in Stocks or ETFs?", 
+            options=["Stocks", "ETFs"]
+        )
 
-        # Yes/No question
-        yes_no = st.radio("Do you agree with the terms?", ("Yes", "No"))
+        # Conditional questions based on whether user selects Stocks or ETFs
+        if investment_type == "Stocks":
+            # Question 2a: Risk level for Stocks
+            risk_level = st.radio("What kind of risk level do you prefer for stocks?", 
+                                  options=["Low", "Medium", "High"])
 
-        # Quantitative input (Slider)
-        number_input = st.slider("On a scale from 1 to 100, how do you rate our service?", 1, 100, 50)
+            # Question 2b: Market capitalization preference
+            size_preference = st.radio("What market capitalization do you prefer?", 
+                                       options=["Small", "Medium", "Large"])
+
+            # Question 2c: Value or growth preference
+            pe_preference = st.radio("Do you want to focus on Value stocks or Growth stocks?", 
+                                     options=["Value", "Growth"])
+
+        elif investment_type == "ETFs":
+            # Question 3: Risk profile for ETFs
+            risk_profile = st.radio("What is your risk profile for ETFs?", 
+                                    options=["Conservative", "Progressive"])
+
+        # Minimal threshold for portfolio allocation (common for both stocks and ETFs)
+        percentage_threshold = st.slider("Minimal threshold of portfolio allocation (%)", 
+                                         min_value=0.0, max_value=100.0, value=1.0)
 
         # Submit button
-        submit = st.form_submit_button("Submit")
+        submit_button = st.form_submit_button("Submit")
 
-        if submit:
-            # Store data in session state
-            st.session_state['yes_no'] = yes_no
-            st.session_state['number_input'] = number_input
+        if submit_button:
+            # Store inputs in session state
+            st.session_state['investment_type'] = investment_type
+            st.session_state['percentage_threshold'] = percentage_threshold
+            if investment_type == "Stocks":
+                st.session_state['risk_level'] = risk_level
+                st.session_state['size_preference'] = size_preference
+                st.session_state['pe_preference'] = pe_preference
+            elif investment_type == "ETFs":
+                st.session_state['risk_profile'] = risk_profile
+
             st.session_state['submitted'] = True
+            st.experimental_rerun()
 
-            st.success("Form submitted! You can now view the results on the Result Page.")
-
-# Result page with a table and line graph
+# Function to display the result page
 def result_page():
-    st.title("Result Page")
+    st.title("Your Investment Preferences Summary")
 
-    # Display the user's answers in a table format
-    st.write("Here are your responses:")
+    # Display the user's responses in a table format
+    if st.session_state['investment_type'] == "Stocks":
+        data = {
+            "Question": [
+                "Investment Type", 
+                "Risk Level", 
+                "Market Capitalization Preference", 
+                "Value or Growth Preference", 
+                "Minimal Portfolio Allocation Threshold (%)"
+            ],
+            "Your Answer": [
+                st.session_state['investment_type'], 
+                st.session_state['risk_level'], 
+                st.session_state['size_preference'], 
+                st.session_state['pe_preference'], 
+                st.session_state['percentage_threshold']
+            ]
+        }
+    elif st.session_state['investment_type'] == "ETFs":
+        data = {
+            "Question": [
+                "Investment Type", 
+                "Risk Profile", 
+                "Minimal Portfolio Allocation Threshold (%)"
+            ],
+            "Your Answer": [
+                st.session_state['investment_type'], 
+                st.session_state['risk_profile'], 
+                st.session_state['percentage_threshold']
+            ]
+        }
 
-    # Creating a DataFrame to show data in tabular format
-    data = {
-        "Question": ["Do you agree with the terms?", "Service rating (1-100)"],
-        "Your Answer": [st.session_state['yes_no'], st.session_state['number_input']]
-    }
     df = pd.DataFrame(data)
     st.table(df)
 
-    # Simulate some data for the line graph
+    # Generate random data and plot a line graph (this could be based on actual data processing in a real app)
     x = np.arange(1, 11)  # X-axis: 10 data points
-    y = np.random.rand(10) * st.session_state['number_input']  # Y-axis based on the user input
+    y = np.random.rand(10) * st.session_state['percentage_threshold']  # Y-axis based on user input
 
-    st.write("Line graph based on your service rating:")
+    st.write("Portfolio allocation over time (simulated):")
     fig, ax = plt.subplots()
     ax.plot(x, y, marker='o')
-    ax.set_title("Sample Line Graph")
-    ax.set_xlabel("X-axis (Time)")
-    ax.set_ylabel("Y-axis (Values)")
+    ax.set_title("Simulated Portfolio Allocation")
+    ax.set_xlabel("Time (Years)")
+    ax.set_ylabel("Allocation (%)")
     st.pyplot(fig)
 
     # Button to go back to the Landing Page
-    if st.button("Go back to Landing Page"):
+    if st.button("Go back to Questionnaire"):
         st.session_state['submitted'] = False
         st.experimental_rerun()
+
+# Main function to handle page rendering
+def main():
+    if 'submitted' not in st.session_state:
+        st.session_state['submitted'] = False
+
+    # Check if form is submitted, if not show the form page
+    if not st.session_state['submitted']:
+        landing_page()
+    else:
+        result_page()
 
 if __name__ == "__main__":
     main()
