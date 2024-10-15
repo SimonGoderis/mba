@@ -62,7 +62,7 @@ def landing_page():
             st.session_state['pe_preference'] = 'null'
         
         st.session_state.submitted = True  # Mark the form as submitted
-        st.experimental_rerun()
+        st.rerun()
 
 
 
