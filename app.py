@@ -343,9 +343,9 @@ def result_page():
 
             return filtered_tickers
 
-    st.title("Information")
-
     selected_tickers = filter_stocks(risk_level_stocks, size_preference, pe_preference, market_cap, beta, pe_ratio,)
+
+    st.title("Information")
     
     # Displaying answer results
     st.subheader("Your form details")
