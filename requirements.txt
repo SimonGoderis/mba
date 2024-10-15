@@ -4,4 +4,3 @@ matplotlib
 yfinance
 cvxpy
 datetime
-time
