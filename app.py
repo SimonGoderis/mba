@@ -21,50 +21,48 @@ st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
 # Function to display the landing page (form)
 def landing_page():
-    st.title("Investment Portfolio Optimization Form")
+    st.title("Investment Portfolio Optimization")
     
     # Form elements
-    investment_type = st.selectbox('Select Investment Type', ['stocks', 'ETFs'], index=0)
-    time_window = st.radio('Select Benchmark Window (Years)', [2, 5], index=1)
-    optimization_type = st.selectbox("Optimization Type", ['minimize portfolio risk', 'maximize portfolio return'])
+    investment_type = st.selectbox('Select Investment Type', ['Stocks', 'ETFs'], index=0)
+    time_window = st.selectbox('Select Benchmark Window (Years)', [2, 5], index=1)
+    optimization_type = st.selectbox("Optimization Type", ['Minimize portfolio risk', 'Maximize portfolio return'])
     
-    if investment_type == 'stocks':
-        risk_level_stocks = st.selectbox('Select Risk Level', ['low', 'medium', 'high'])
-        size_preference = st.selectbox('Select Market Capitalization', ['small', 'medium', 'large'])
-        pe_preference = st.selectbox('Select Stock Type', ['value', 'growth'])
+    if investment_type == 'Stocks':
+        risk_level_stocks = st.selectbox('Select Risk Level', ['Low', 'Medium', 'High'], index=1)
+        size_preference = st.selectbox('Select Market Capitalization', ['Small', 'Medium', 'Large'], index=1)
+        pe_preference = st.selectbox('Select Stock Type', ['Value', 'Growth'])
     else:
-        risk_level_etf = st.selectbox('Select Risk Level (ETF)', ['low', 'medium', 'high'])
+        risk_level_etf = st.selectbox('Select Risk Level (ETF)', ['Low', 'Medium', 'High'], index=1)
         
-    percentage_threshold = st.number_input('Minimal Stake (%)', min_value=0.0, value=10.0)
-    buy_in_EUR = st.number_input('Total Buy-In Amount (EUR)', min_value=1000.0, value=100000.0)
-    fee = st.number_input('Investment Fee (EUR)', min_value=0.0, value=1500.0)
+    percentage_threshold = st.slider('Minimal Stake (%)', min_value=0, max_value=100, value=20)
+    buy_in_EUR = st.number_input('Total Buy-In Amount (EUR)', min_value=1000, value=100000, step=1000)
+    fee = st.number_input('Investment Fee (EUR)', min_value=0, value=1500, step=100)
     
     # Submit Button
     if st.button('Submit'):
         # Store form data in session state
-        st.session_state['investment_type'] = investment_type
+        st.session_state['investment_type'] = investment_type.lower()
         st.session_state['time_window'] = time_window
-        st.session_state['optimization_type'] = optimization_type
+        st.session_state['optimization_type'] = optimization_type.lower()
         st.session_state['percentage_threshold'] = percentage_threshold
         st.session_state['buy_in_EUR'] = buy_in_EUR
         st.session_state['fee'] = fee
         
         
-        if investment_type == 'stocks':
-            st.session_state['risk_level_stocks'] = risk_level_stocks
-            st.session_state['size_preference'] = size_preference
-            st.session_state['pe_preference'] = pe_preference
+        if investment_type == 'Stocks':
+            st.session_state['risk_level_stocks'] = risk_level_stocks.lower()
+            st.session_state['size_preference'] = size_preference.lower()
+            st.session_state['pe_preference'] = pe_preference.lower()
             st.session_state['risk_level_etf'] = 'null'
         else:
-            st.session_state['risk_level_etf'] = risk_level_etf
+            st.session_state['risk_level_etf'] = risk_level_etf.lower()
             st.session_state['risk_level_stocks'] = 'null'
             st.session_state['size_preference'] = 'null'
             st.session_state['pe_preference'] = 'null'
         
         st.session_state.submitted = True  # Mark the form as submitted
         st.rerun()
-
-
 
 # Function to display the result page
 def result_page():
@@ -345,15 +343,6 @@ def result_page():
 
     selected_tickers = filter_stocks(risk_level_stocks, size_preference, pe_preference, market_cap, beta, pe_ratio,)
 
-    st.title("Information")
-    
-    # Displaying answer results
-    st.subheader("Your form details")
-    st.table(answer_results)
-
-    st.subheader("Selection")
-    st.write(f"Stocks to invest in with your current profile: {",".join(selected_tickers)}")
-
     my_bar.progress(60, "Gathering sentiment data.")
     time.sleep(2)
 
@@ -593,14 +582,6 @@ def result_page():
     if investment_type == 'stocks':
         portfolio = pd.merge(portfolio, sentiment_data, left_on="Selected Tickers", right_on="Symbol")
         portfolio = portfolio.drop(columns=["Symbol"])
-        st.write(f"\nThe overall market sentiment is {round(overall_sentiment,2)}. \n")
-
-    st.title("Portfolio")
-
-    # Show portfolio
-    # st.write("pre-selected stocks before optimization:", selected_tickers)
-    st.write(f"\nOptimized portfolio: \n",portfolio)
-
 
     # i.      Construct weighted signal based on fractions
     # get right naming
@@ -626,6 +607,24 @@ def result_page():
     # Calculate yearly returns for each ticker
     yearly_returns_tickers = data[selected_tickers].resample('YE').last().pct_change().dropna() * 100
 
+    my_bar.empty()
+
+    st.title("Information")
+    
+    # Displaying answer results
+    st.subheader("Your form details")
+    st.table(answer_results)
+
+    st.subheader("Selection")
+    st.write(f"Stocks to invest in with your current profile: {", ".join(selected_tickers)}")
+    st.write(f"\nThe overall market sentiment is {round(overall_sentiment,2)}. \n")
+
+    st.title("Portfolio")
+
+    # Show portfolio
+    # st.write("pre-selected stocks before optimization:", selected_tickers)
+    st.write(f"\nOptimized portfolio: \n",portfolio)
+
     # Plot the normalized weighted signal and individual tickers
     plt.figure(figsize=(16, 9))
     plt.plot(weighted_signal / weighted_signal.iloc[0], label='Weighted Signal', linewidth=6)
@@ -636,11 +635,8 @@ def result_page():
     plt.ylabel('Normalized Signal Value')
     plt.legend()
     plt.grid(True)
-    
+ 
     st.pyplot(plt)
-
-
-
 
     # Construct a dataframe for yearly returns
     yearly_returns_df = pd.DataFrame(yearly_returns_weighted, columns=['Weighted Signal'])
@@ -659,7 +655,7 @@ def result_page():
     ax.grid(True)
     ax.set_xticklabels([date.year for date in yearly_returns_df.index], rotation=0)
 
-    my_bar.empty()
+    st.pyplot(plt)
 
     
 
