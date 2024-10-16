@@ -22,25 +22,31 @@ st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 # Function to display the landing page (form)
 def landing_page():
     st.title("Investment Portfolio Optimization")
+
+    c = st.container()
     
     # Form elements
-    investment_type = st.selectbox('Select Investment Type', ['Stocks', 'ETFs'], index=0)
-    time_window = st.selectbox('Select Benchmark Window (Years)', [2, 5], index=1)
-    optimization_type = st.selectbox("Optimization Type", ['Minimize portfolio risk', 'Maximize portfolio return'])
+    investment_type = c.selectbox('Select Investment Type', ['Stocks', 'ETF'], index=0)
+    time_window = c.selectbox('Select Benchmark Window (Years)', [2, 5], index=1)
+    optimization_type = c.selectbox("Optimization Type", ['Minimize portfolio risk', 'Maximize portfolio return'])
     
     if investment_type == 'Stocks':
-        risk_level_stocks = st.selectbox('Select Risk Level', ['Low', 'Medium', 'High'], index=1)
-        size_preference = st.selectbox('Select Market Capitalization', ['Small', 'Medium', 'Large'], index=1)
-        pe_preference = st.selectbox('Select Stock Type', ['Value', 'Growth'])
+        risk_level_stocks = c.selectbox('Select Risk Level', ['Low', 'Medium', 'High'], index=1)
+        size_preference = c.selectbox('Select Market Capitalization', ['Small', 'Medium', 'Large'], index=1)
+        pe_preference = c.selectbox('Select Stock Type', ['Value', 'Growth'])
     else:
-        risk_level_etf = st.selectbox('Select Risk Level (ETF)', ['Low', 'Medium', 'High'], index=1)
+        risk_level_etf = c.selectbox('Select Risk Level (ETF)', ['Low', 'Medium', 'High'], index=2)
         
-    percentage_threshold = st.slider('Minimal Stake (%)', min_value=0, max_value=100, value=20)
-    buy_in_EUR = st.number_input('Total Buy-In Amount (EUR)', min_value=1000, value=100000, step=1000)
-    fee = st.number_input('Investment Fee (EUR)', min_value=0, value=1500, step=100)
+    percentage_threshold = c.slider('Minimal Stake (%)', min_value=0, max_value=100, value=20)
+    buy_in_EUR = c.number_input('Total Buy-In Amount (EUR)', min_value=1000, value=100000, step=1000)
+    fee = c.number_input('Investment Fee (EUR)', min_value=0, value=1500, step=100)
     
     # Submit Button
-    if st.button('Submit'):
+    if c.button('Submit'):
+
+        with open ('style.css') as f:
+            st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
+
         # Store form data in session state
         st.session_state['investment_type'] = investment_type.lower()
         st.session_state['time_window'] = time_window
@@ -48,8 +54,7 @@ def landing_page():
         st.session_state['percentage_threshold'] = percentage_threshold
         st.session_state['buy_in_EUR'] = buy_in_EUR
         st.session_state['fee'] = fee
-        
-        
+
         if investment_type == 'Stocks':
             st.session_state['risk_level_stocks'] = risk_level_stocks.lower()
             st.session_state['size_preference'] = size_preference.lower()
@@ -60,7 +65,7 @@ def landing_page():
             st.session_state['risk_level_stocks'] = 'null'
             st.session_state['size_preference'] = 'null'
             st.session_state['pe_preference'] = 'null'
-        
+
         st.session_state.submitted = True  # Mark the form as submitted
         st.rerun()
 
@@ -96,7 +101,7 @@ def result_page():
             st.session_state['buy_in_EUR'],
             st.session_state['fee']
         ])
-    elif st.session_state['investment_type'] == "ETFs":
+    elif st.session_state['investment_type'] == "etf":
         data["Question"].extend([
             "Investment Type",
             "Time Window", 
@@ -131,7 +136,7 @@ def result_page():
 # ---------------------------------------
 # ---------------------------------------
     
-    my_bar = st.progress(0, "Initializing application, processing your input answers.")
+    my_bar = st.progress(0, "Initializing application, processing your input answers...")
 
     if investment_type == 'stocks':
         tickers = [
@@ -164,7 +169,7 @@ def result_page():
             'SBRA', 'VTR', 'WELL', 'HCP', 'DOC',
             'HR', 'GMRE', 'MPW', 'CHCT', 'CTRE',
         ]
-    elif investment_type == 'ETF':
+    elif investment_type == 'etf':
         tickers = [
             'SPY', 'IVV', 'VOO', 'QQQ', 'VTI',
             'IWM', 'VUG', 'VTV', 'EEM', 'EFA',
@@ -179,12 +184,12 @@ def result_page():
     else:
         print(f"warning, wrong input")
 
-    my_bar.progress(5, "Gathering historical ticker data.")
+    my_bar.progress(5, "Downloading historical ticker data...")
     # Fetch historical data
     data = yf.download(tickers, start=((datetime.now() - pd.DateOffset(years=time_window)).strftime('%Y-%m-%d')), end=datetime.now().strftime('%Y-%m-%d'))['Adj Close']
 
 
-    my_bar.progress(20, "Gathering ticker metadata.")
+    my_bar.progress(20, "Gathering relevant ticker metadata...")
 
     if investment_type == 'stocks':
         # Function to retrieve metadata on the stocks
@@ -192,7 +197,7 @@ def result_page():
             stock = yf.Ticker(ticker)
             return stock.info.get(meta_type, None)
 
-        my_bar.progress(30, "Gathering ticker metadata.")
+        my_bar.progress(30, "Gathering relevant ticker metadata...")
 
         def retrieve_and_filter_metadata(tickers, risk_level_stocks):
             market_cap = {}
@@ -232,7 +237,7 @@ def result_page():
         # Retrieve metadata for all tickers
         market_cap, beta, pe_ratio = retrieve_and_filter_metadata(tickers, risk_level_stocks)
 
-        my_bar.progress(35, "Gathering ticker metadata.")
+        my_bar.progress(35, "Gathering relevant ticker metadata...")
 
         # refine the tickers
         tickers = market_cap.keys()
@@ -245,7 +250,7 @@ def result_page():
 
         #
 
-    elif investment_type == "ETF":
+    elif investment_type == "etf":
         # Function to retrieve ETF metadata
         def retrieve_etf_metadata(tickers):
             net_assets = {}
@@ -262,7 +267,7 @@ def result_page():
                 else:
                     excluded_tickers.append(ticker)
 
-            my_bar.progress(30, "Gathering ticker metadata.")
+            my_bar.progress(30, "Gathering relevant ETF metadata...")
             time.sleep(2)
 
             # Print excluded tickers
@@ -275,7 +280,7 @@ def result_page():
         net_assets = retrieve_etf_metadata(tickers)
 
 
-    my_bar.progress(40, "Selecting stocks.")
+    my_bar.progress(40, "Selecting the best stock for your preferences...")
     time.sleep(2)
 
     if investment_type == 'stocks':
@@ -341,9 +346,9 @@ def result_page():
 
             return filtered_tickers
 
-    selected_tickers = filter_stocks(risk_level_stocks, size_preference, pe_preference, market_cap, beta, pe_ratio,)
+        selected_tickers = filter_stocks(risk_level_stocks, size_preference, pe_preference, market_cap, beta, pe_ratio,)
 
-    my_bar.progress(60, "Gathering sentiment data.")
+    my_bar.progress(60, "Gathering sentiment data...")
     time.sleep(2)
 
     if investment_type == 'stocks':
@@ -394,10 +399,10 @@ def result_page():
         # overall_sentiment, sentiment_data
 
 
-    my_bar.progress(80, "Generating your optimal portfolio")
+    my_bar.progress(80, "Generating your optimal portfolio...")
     time.sleep(2)
 
-    if investment_type == 'ETF':
+    if investment_type == 'etf':
         # Function to calculate standard deviation
         def calculate_standard_deviation(ticker, period=f'{time_window}y'):
             etf = yf.Ticker(ticker)
@@ -505,14 +510,12 @@ def result_page():
             tracking_errors,
         )
 
-        st.write(f"ETFs to invest in with your current profile `{risk_level_etf}`: {selected_tickers}")
-
 
 
     # Calculate daily returns
     returns = data[selected_tickers].pct_change(fill_method=None).dropna()
 
-    my_bar.progress(90, "Finalizing our recommendation.")
+    my_bar.progress(90, "Finalizing our recommendation...")
     time.sleep(2)
 
     # Calculate mean returns and covariance matrix
@@ -551,6 +554,7 @@ def result_page():
         problem.solve()
 
         return weights.value
+    
     # Example: Optimize portfolio for selected ETFs
     optimized_weights = optimize_portfolio(selected_tickers, mean_returns, cov_matrix, optimization_type)
 
@@ -568,7 +572,7 @@ def result_page():
     portfolio.at[max_weight_index, 'Percentage'] += weight_diff
 
 
-    my_bar.progress(95, "Adding the icing on the cake.")
+    my_bar.progress(95, "Adding the icing on the cake...")
     time.sleep(2)
 
     # construct weight back to adjusted fractions
@@ -585,7 +589,7 @@ def result_page():
 
     # i.      Construct weighted signal based on fractions
     # get right naming
-    if investment_type == 'ETF':
+    if investment_type == 'etf':
         risk_lvl = risk_level_etf
     elif investment_type == 'stocks':
         risk_lvl = risk_level_stocks
@@ -616,8 +620,12 @@ def result_page():
     st.table(answer_results)
 
     st.subheader("Selection")
-    st.write(f"Stocks to invest in with your current profile: {", ".join(selected_tickers)}")
-    st.write(f"\nThe overall market sentiment is {round(overall_sentiment,2)}. \n")
+    
+    if investment_type == 'stocks':
+        st.write(f"Stocks to invest in with your current profile: {", ".join(selected_tickers)}")
+        st.write(f"\nThe overall market sentiment is {round(overall_sentiment,2)}. \n")
+    elif investment_type == 'etf':
+        st.write(f"ETFs to invest in with your current profile ({risk_level_etf}): {", ".join(selected_tickers)}")
 
     st.title("Portfolio")
 
