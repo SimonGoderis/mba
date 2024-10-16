@@ -279,8 +279,10 @@ def result_page():
         # Retrieve metadata for all tickers
         net_assets = retrieve_etf_metadata(tickers)
 
-
-    my_bar.progress(40, "Selecting the best stock for your preferences...")
+    if investment_type == 'stocks':
+        my_bar.progress(40, "Selecting the best stock for your preferences...")
+    elif investment_type == 'etf':
+        my_bar.progress(40, "Selecting the best ETFs for your preferences...")
     time.sleep(2)
 
     if investment_type == 'stocks':
