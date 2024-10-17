@@ -21,6 +21,7 @@ st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
 # Function to display the landing page (form)
 def landing_page():
+    st.image("melanie.png")
     st.title("Investment Portfolio Optimization")
 
     c = st.container()
@@ -71,6 +72,7 @@ def landing_page():
 
 # Function to display the result page
 def result_page():
+    st.image("melanie.png")
     st.title("RESULT")
 
     # Prepare data for the DataFrame
